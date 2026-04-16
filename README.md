@@ -35,6 +35,7 @@ Then open http://localhost:5200/swagger
 * Add a React frontend for interacting with the API
 * Implement server-side filtering for complaints (status, priority, tenant)
 * Add authentication (e.g., OAuth)
+* Unit Testing.
 
 ## Notes
 
