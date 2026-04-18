@@ -2,38 +2,74 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TestApi.Models;
 using TestApi.Data;
+using TestApi.Dtos;
+using TestApi.Mappings;
 
 namespace TestApi.Controllers;
 
 [ApiController]
 [Route("complaints")]
-// Is the ":" syntax a way to say "extends"?
 public class ComplaintsController : ControllerBase
 {
     private readonly AppDbContext _db;
 
-    // Is this our constructor? Seems like it. 
     public ComplaintsController(AppDbContext db)
     {
-        // not sure if this is idiomatic.
         _db = db;
     }
 
-    // I'm wondering if the bracket syntax is some sort of decorator?
     [HttpGet]
-    public async Task<IEnumerable<Complaint>> Get()
+    public async Task<IEnumerable<Complaint>> Get(
+        [FromQuery] ComplaintStatus? status,
+        [FromQuery] PriorityLevel? priority,
+        [FromQuery] int? tenantId
+    )
     {
-        return await _db.Complaints
+        var query = _db.Complaints
             .Include(c => c.Tenant)
-            .ToListAsync();
+            .AsQueryable();
+
+        if (status.HasValue)
+        {
+            query = query.Where(c => c.Status == status.Value);
+        }
+        if (priority.HasValue)
+        {
+            query = query.Where(c => c.Priority == priority.Value);
+        }
+        if (tenantId.HasValue)
+        {
+            query = query.Where(c => c.TenantId == tenantId.Value);
+        }
+
+        return await query.ToListAsync();
+    }
+
+    // Get By ID
+    [HttpGet("{id}")] // this will create /complaints/:id
+    public async Task<ActionResult<Complaint>> GetById(int id)
+    {
+        var complaint = await _db.Complaints
+            .Include(c => c.Tenant)
+            .FirstOrDefaultAsync(c => c.Id == id);
+        if (complaint == null)
+        {
+            return NotFound();
+        }
+        return complaint;
     }
 
     [HttpPost]
-    public async Task<IActionResult> Create(Complaint complaint)
+    public async Task<IActionResult> Create(CreateComplaintDto dto)
     {
+        var complaint = dto.ToEntity();
         _db.Complaints.Add(complaint);
         await _db.SaveChangesAsync();
-        // is Ok a keyword? 
-        return Ok(complaint);
+
+        return CreatedAtAction(
+            nameof(GetById),
+            new { id = complaint.Id },
+            complaint
+        );
     }
 }
